@@ -3,3 +3,5 @@
 **/*.elf
 **/*.list
 **/*.map
+boot2.S
+boot2_raw.S
