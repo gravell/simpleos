@@ -8,8 +8,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
-
-/// \tag::hello_uart[]
+#include "hardware/structs/ioqspi.h"
 
 #define UART_ID uart0
 #define BAUD_RATE 115200
@@ -20,7 +19,44 @@
 #define UART_RX_PIN 1
 
 void runtime_init(void);
-int main() {
+
+bool get_bootsel_button(void)
+{
+    const uint CS_PIN_INDEX = 1;
+
+    // Must disable interrupts, as interrupt handlers may be in flash, and we
+    // are about to temporarily disable flash access!
+    /*
+    uint32_t flags = save_and_disable_interrupts();
+    */
+
+    // Set chip select to Hi-Z
+    hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl,
+                    GPIO_OVERRIDE_LOW << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
+                    IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
+
+    // Note we can't call into any sleep functions in flash right now
+    for (volatile int i = 0; i < 1000; ++i);
+
+    // The HI GPIO registers in SIO can observe and control the 6 QSPI pins.
+    // Note the button pulls the pin *low* when pressed.
+    bool button_state = !(sio_hw->gpio_hi_in & (1u << CS_PIN_INDEX));
+
+    // Need to restore the state of chip select, else we are going to have a
+    // bad time when we return to code in flash!
+    hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl,
+                    GPIO_OVERRIDE_NORMAL << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
+                    IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
+
+    /*
+    restore_interrupts(flags);
+    */
+
+    return button_state;
+}
+
+int main()
+{
     // bool isLoop = true;
     // while (isLoop)
     // {
@@ -45,7 +81,7 @@ int main() {
     // In a default system, printf will also output via the default UART
 
     // Send longer string for debug
-    uart_puts(UART_ID, "AAAAAABBBBBBCCCCCCCDDDDDDDDDDEEEFFFFFFFFGGGGGGGHHHHHHH");
+    uart_puts(UART_ID, "Hello to SimpleOS!\r\n");
 
     // Send out a character without any conversions
     uart_putc_raw(UART_ID, 'A');
@@ -59,27 +95,78 @@ int main() {
     uart_puts(UART_ID, "Pawel wita!\r\n");
     uart_puts(UART_ID, "---\r\n");
 
+    gpio_init(7);
+    gpio_set_dir(7, GPIO_IN);
+    gpio_pull_up(7);
+
+    const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
 
     while (1)
     {
-// #define ROSC_MHZ_MAX 12
-        // delay(100 * ROSC_MHZ_MAX / 3);
         uint32_t sum = 0;
+        bool bootsel_pressed = false;
         for (int i = 0; i < 9; ++i)
         {
-            // delay(1 * ROSC_MHZ_MAX / 3);
-            for (uint32_t x = 0 ; x < 1000000; x++)
-            {}
-            sum += (sio_hw->gpio_hi_in >> 1) & 1u;
+            for (uint32_t x = 0 ; x < 100000; x++)
+            {
+                ;
+            }
+
+            if(get_bootsel_button())
+            {
+                sum++;
+            }
         }
 
         if (sum >= 5)
-            uart_puts(UART_ID, "Pawel wita!\r\n");
+        {
+            bootsel_pressed = true;
+        }
+
+        uart_puts(UART_ID, "Pawel wita!\r\n");
+
+        if (gpio_get(7))
+        {
+            uart_puts(UART_ID, "Pawel wita jedynke\r\n");
+        }
+        else
+        {
+            uart_puts(UART_ID, "Pawel wita zero\r\n");
+        }
+        if (bootsel_pressed)
+        {
+            uart_puts(UART_ID, "Pawel wita tez bootsel :)\r\n");
+        }
+
+        gpio_put(LED_PIN, 1);
+        for (uint32_t x = 0 ; x < 1000000; x++)
+        {
+            ;
+        }
+        gpio_put(LED_PIN, 0);
+        for (uint32_t x = 0 ; x < 1000000; x++)
+        {
+            ;
+        }
+        gpio_put(LED_PIN, 1);
+        for (uint32_t x = 0 ; x < 1000000; x++)
+        {
+            ;
+        }
+        gpio_put(LED_PIN, 0);
+        for (uint32_t x = 0 ; x < 6000000; x++)
+        {
+            ;
+        }
     }
 
 
     while(1)
-    {}
+    {
+        ;
+    }
 }
 
 /// \end::hello_uart[]
