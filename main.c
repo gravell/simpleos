@@ -1,14 +1,8 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
-
-#include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 #include "hardware/structs/ioqspi.h"
+
+#include "runtime.h"
 
 #define UART_ID uart0
 #define BAUD_RATE 115200
@@ -17,8 +11,6 @@
 // datasheet for information on which other pins can be used.
 #define UART_TX_PIN 0
 #define UART_RX_PIN 1
-
-void runtime_init(void);
 
 bool get_bootsel_button(void)
 {
@@ -57,12 +49,6 @@ bool get_bootsel_button(void)
 
 int main()
 {
-    // bool isLoop = true;
-    // while (isLoop)
-    // {
-        // Wait for asm !
-    // }
-
     bool static runtime_init_done = false;
     if (!runtime_init_done)
     {
