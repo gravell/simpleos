@@ -1,4 +1,4 @@
-start = 0x20000000;
+start = 0x10000000;
 ENTRY(start)
 
 MEMORY
@@ -7,22 +7,16 @@ MEMORY
     ram   (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00042000
 }
 
+fw_start_addr = 0x20000000;
+
 SECTIONS
 {
     .boot2 :
     {
-        /* Reserved for default stage 2 bootloader (256B) */
-        /* boot2.o */
+        /* Reserved for default stage 2 bootloader */
         *(.boot2*)
         . = 256;
     } > flash
-
-    /*
-    .vectors :
-    {
-        boot2 requires that vector table is first data in binary
-    } > flash
-    */
 
     .copier :
     {
@@ -31,17 +25,17 @@ SECTIONS
         . = 256;
     } > flash
 
-    .text :
+    .bootapp :
     {
+        /* Bootloader application that loads OS */
         *(.text*)
-    } > ram
+    } > flash
 
-    /*
-    .data :
+    /* To make binary 16kB of size, hacky but works */
+    .fill 0x10003fff:
     {
-        *(.data*)
-    } > ram
-    */
+        BYTE(0x00);
+    } > flash
 
     .bss :
     {
@@ -52,7 +46,6 @@ SECTIONS
     .stack 0x20041000 :
     {
         . = 0x00001000;
-        /* *(.stack*) */
     } > ram
     stack_top = .;
 }
